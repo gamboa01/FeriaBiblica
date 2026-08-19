@@ -40,7 +40,7 @@ function HostShell({
         disabled={busy}
         className="absolute right-4 top-4 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-1.5 text-xs text-slate-400 backdrop-blur transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
       >
-        🔄 Nueva sesión
+        Nueva sesión
       </button>
     </div>
   );
@@ -204,20 +204,26 @@ export function HostGame() {
   }
 
   // currentHeat.status === "finished"
-  const nextAction = currentHeat.is_final
-    ? {
-        label: "Ver podio final",
-        busy,
-        onClick: async () => {
-          setBusy(true);
-          try {
-            await finishSession(session.id);
-            await refreshSessionData(session.id);
-          } finally {
-            setBusy(false);
-          }
-        },
+  const regularHeatsCount = heats.filter((h) => !h.is_final).length;
+  // Con 4 jugadores o menos, todos ya corrieron juntos en una sola tanda —
+  // no hay un "mejor 4" distinto de esos mismos jugadores, así que la final
+  // no aporta nada y se salta directo al podio.
+  const finalMakesSense = regularHeatsCount > 1;
+  const goToPodium = {
+    label: "Ver podio final",
+    busy,
+    onClick: async () => {
+      setBusy(true);
+      try {
+        await finishSession(session.id);
+        await refreshSessionData(session.id);
+      } finally {
+        setBusy(false);
       }
+    },
+  };
+  const nextAction = currentHeat.is_final
+    ? goToPodium
     : pendingPlayers.length > 0
       ? {
           label: "Siguiente carrera",
@@ -231,18 +237,20 @@ export function HostGame() {
             }
           },
         }
-      : {
-          label: "Iniciar carrera final (top 4)",
-          busy,
-          onClick: async () => {
-            setBusy(true);
-            try {
-              await startFinalHeat(session.id);
-            } finally {
-              setBusy(false);
-            }
-          },
-        };
+      : finalMakesSense
+        ? {
+            label: "Iniciar carrera final (top 4)",
+            busy,
+            onClick: async () => {
+              setBusy(true);
+              try {
+                await startFinalHeat(session.id);
+              } finally {
+                setBusy(false);
+              }
+            },
+          }
+        : goToPodium;
 
   return (
     <HostShell onNewSession={handleNewSession} busy={busy}>
