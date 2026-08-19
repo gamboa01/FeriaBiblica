@@ -10,6 +10,7 @@ import {
   pushDistance,
   subscribeToHeat,
   subscribeToPlayer,
+  subscribeToSessionStatus,
 } from "@/lib/race";
 import { getStoredPlayer, type StoredPlayer } from "@/lib/storage";
 import { OBSTACLE_COUNT, type HeatPlayerRow, type HeatRow, type SessionRow } from "@/lib/types";
@@ -88,6 +89,15 @@ export function PlayerGame({ code }: { code: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heat?.id]);
 
+  useEffect(() => {
+    if (!stored) return;
+    const unsubscribe = subscribeToSessionStatus(stored.sessionId, () => {
+      refresh(stored.playerId, stored.sessionId);
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored?.sessionId]);
+
   const isRunning = heatPlayer?.state === "running" && heat?.status !== "finished";
   const { permission, requestPermission } = useShake({
     active: isRunning,
@@ -133,7 +143,7 @@ export function PlayerGame({ code }: { code: string }) {
     return (
       <StatusScreen
         title={`¡Gracias por jugar, ${stored.name}!`}
-        subtitle="Mira la pantalla grande para ver el podio final."
+        subtitle="Mira la pantalla grande para ver el podio. Vuelve a escanear el QR o vuelve a ingresar al juego para la siguiente ronda."
       />
     );
   }

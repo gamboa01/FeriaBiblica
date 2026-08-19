@@ -119,6 +119,12 @@ export function HostGame() {
     }
     setBusy(true);
     try {
+      // Marca la sesión vieja como terminada para que a cualquier jugador
+      // que se haya quedado ahí le aparezca el aviso de volver a entrar,
+      // en vez de dejarlo colgado sin saber que ya se cerró.
+      if (session) {
+        await finishSession(session.id);
+      }
       const s = await createSession();
       saveStoredHostSession(s.id);
       setSession(s);

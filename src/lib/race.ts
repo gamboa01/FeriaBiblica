@@ -356,6 +356,27 @@ export function subscribeToHeat(heatId: string, onChange: () => void) {
   };
 }
 
+/**
+ * Igual que subscribeToHeat pero para la sesión: cubre al jugador que está
+ * quieto (sin heat activo, o ya vio "la carrera terminó") cuando la
+ * anfitriona cierra la sesión — sin esto, no se entera hasta que vuelva a
+ * interactuar con algo.
+ */
+export function subscribeToSessionStatus(sessionId: string, onChange: () => void) {
+  const supabase = getSupabase();
+  const channel = supabase
+    .channel(`session-status:${sessionId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "sessions", filter: `id=eq.${sessionId}` },
+      onChange
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 export function subscribeToHeatPlayers(heatId: string, onChange: () => void) {
   const supabase = getSupabase();
   const channel = supabase
