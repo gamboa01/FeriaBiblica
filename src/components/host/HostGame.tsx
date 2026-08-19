@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createSession,
   finishSession,
@@ -33,9 +33,11 @@ export function HostGame() {
 
   const currentHeat = heats[heats.length - 1] ?? null;
   const playersById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+  const initStarted = useRef(false);
 
   useEffect(() => {
-    if (!supabaseConfigured) return;
+    if (!supabaseConfigured || initStarted.current) return;
+    initStarted.current = true;
     (async () => {
       const existingId = getStoredHostSession();
       let s = existingId ? await getSessionById(existingId) : null;
@@ -146,6 +148,7 @@ export function HostGame() {
           setBusy(true);
           try {
             await finishSession(session.id);
+            await refreshSessionData(session.id);
           } finally {
             setBusy(false);
           }

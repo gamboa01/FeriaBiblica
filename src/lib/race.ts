@@ -322,6 +322,11 @@ export function subscribeToSession(sessionId: string, onChange: () => void) {
     .channel(`session:${sessionId}`)
     .on(
       "postgres_changes",
+      { event: "*", schema: "public", table: "sessions", filter: `id=eq.${sessionId}` },
+      onChange
+    )
+    .on(
+      "postgres_changes",
       { event: "*", schema: "public", table: "heats", filter: `session_id=eq.${sessionId}` },
       onChange
     )

@@ -31,6 +31,9 @@ export function PlayerGame({ code }: { code: string }) {
 
   const pctRef = useRef(0);
   const enteringQuestion = useRef(false);
+  // Evita que los ecos de nuestro propio pushDistance() (vía Realtime) reinicien
+  // el progreso local: solo se resetea al entrar de verdad a un obstáculo nuevo.
+  const runningSegmentKey = useRef<string | null>(null);
 
   useEffect(() => {
     const s = getStoredPlayer();
@@ -50,7 +53,9 @@ export function PlayerGame({ code }: { code: string }) {
     if (latest) {
       setHeatPlayer(latest.heatPlayer);
       setHeat(latest.heat);
-      if (latest.heatPlayer.state === "running") {
+      const key = `${latest.heatPlayer.id}:${latest.heatPlayer.obstacle_index}`;
+      if (latest.heatPlayer.state === "running" && runningSegmentKey.current !== key) {
+        runningSegmentKey.current = key;
         pctRef.current = latest.heatPlayer.distance_pct;
         setLocalPct(latest.heatPlayer.distance_pct);
         enteringQuestion.current = false;
