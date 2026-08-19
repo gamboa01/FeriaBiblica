@@ -5,12 +5,14 @@ import { useState } from "react";
 import { getSessionByCode, joinSession } from "@/lib/race";
 import { saveStoredPlayer } from "@/lib/storage";
 import { supabaseConfigured } from "@/lib/supabase/client";
+import { AVATAR_OPTIONS, DEFAULT_AVATAR } from "@/lib/avatars";
 
 export function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [code, setCode] = useState(searchParams.get("code")?.toUpperCase() ?? "");
   const [name, setName] = useState("");
+  const [avatar, setAvatar] = useState<string>(DEFAULT_AVATAR);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +34,7 @@ export function JoinForm() {
         setError("No existe una sesión con ese código");
         return;
       }
-      const player = await joinSession(session.id, name);
+      const player = await joinSession(session.id, name, avatar);
       saveStoredPlayer({
         playerId: player.id,
         sessionId: session.id,
@@ -71,6 +73,26 @@ export function JoinForm() {
         maxLength={4}
         className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg uppercase tracking-[0.3em] outline-none focus:border-amber-500"
       />
+      <div>
+        <p className="mb-2 text-sm text-slate-400">Elige tu personaje</p>
+        <div className="grid grid-cols-4 gap-2">
+          {AVATAR_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setAvatar(option)}
+              aria-pressed={avatar === option}
+              className={`rounded-lg border py-3 text-2xl transition ${
+                avatar === option
+                  ? "border-amber-500 bg-amber-500/20"
+                  : "border-slate-700 bg-slate-900 hover:bg-slate-800"
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button
         type="submit"

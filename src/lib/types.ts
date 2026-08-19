@@ -45,6 +45,7 @@ export type PlayerRow = {
   id: string;
   session_id: string;
   name: string;
+  avatar: string;
   total_score: number;
   created_at: string;
 };

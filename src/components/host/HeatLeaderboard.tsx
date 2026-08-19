@@ -7,12 +7,14 @@ export function HeatLeaderboard({
   isFinal,
   heatPlayers,
   playersById,
+  pendingPlayers,
   nextAction,
 }: {
   heatNumber: number;
   isFinal: boolean;
   heatPlayers: HeatPlayerRow[];
   playersById: Map<string, PlayerRow>;
+  pendingPlayers: PlayerRow[];
   nextAction: { label: string; onClick: () => void; busy: boolean };
 }) {
   const sorted = [...heatPlayers].sort((a, b) => (a.finish_rank ?? 99) - (b.finish_rank ?? 99));
@@ -29,12 +31,18 @@ export function HeatLeaderboard({
             className="flex items-center justify-between rounded-xl bg-slate-900 px-6 py-4"
           >
             <span className="text-xl">
-              {MEDALS[i] ?? `${i + 1}º`} {playersById.get(hp.player_id)?.name ?? "…"}
+              {MEDALS[i] ?? `${i + 1}º`} {playersById.get(hp.player_id)?.avatar ?? ""}{" "}
+              {playersById.get(hp.player_id)?.name ?? "…"}
             </span>
             <span className="text-xl font-bold text-amber-400">+{hp.points} pts</span>
           </div>
         ))}
       </div>
+      {pendingPlayers.length > 0 && (
+        <p className="text-sm text-slate-500">
+          Esperando su turno: {pendingPlayers.map((p) => p.name).join(", ")}
+        </p>
+      )}
       <button
         onClick={nextAction.onClick}
         disabled={nextAction.busy}

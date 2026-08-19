@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   closeHeat,
   createSession,
@@ -23,12 +23,35 @@ import { RaceTrack } from "@/components/host/RaceTrack";
 import { HeatLeaderboard } from "@/components/host/HeatLeaderboard";
 import { Podium } from "@/components/host/Podium";
 
+function HostShell({
+  children,
+  onNewSession,
+  busy,
+}: {
+  children: ReactNode;
+  onNewSession: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="relative flex flex-1 flex-col">
+      {children}
+      <button
+        onClick={onNewSession}
+        disabled={busy}
+        className="absolute right-4 top-4 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-1.5 text-xs text-slate-400 backdrop-blur transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
+      >
+        🔄 Nueva sesión
+      </button>
+    </div>
+  );
+}
+
 export function HostGame() {
   const [session, setSession] = useState<SessionRow | null>(null);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [heats, setHeats] = useState<HeatRow[]>([]);
   const [heatPlayers, setHeatPlayers] = useState<HeatPlayerRow[]>([]);
-  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingPlayers, setPendingPlayers] = useState<PlayerRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [joinUrl, setJoinUrl] = useState("");
 
@@ -61,7 +84,7 @@ export function HostGame() {
     setPlayers(p);
     setHeats(h);
     const pending = await playersWithoutHeat(sessionId);
-    setPendingCount(pending.length);
+    setPendingPlayers(pending);
     const s = await getSessionById(sessionId);
     setSession(s);
   }
@@ -86,6 +109,28 @@ export function HostGame() {
     return unsubscribe;
   }, [currentHeat?.id]);
 
+  async function handleNewSession() {
+    if (
+      !window.confirm(
+        "¿Cerrar esta sesión y empezar una nueva? Los jugadores conectados tendrán que escanear el código nuevo."
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const s = await createSession();
+      saveStoredHostSession(s.id);
+      setSession(s);
+      setPlayers([]);
+      setHeats([]);
+      setHeatPlayers([]);
+      setPendingPlayers([]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!supabaseConfigured) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
@@ -107,45 +152,54 @@ export function HostGame() {
   }
 
   if (session.status === "finished") {
-    return <Podium players={players} />;
+    return (
+      <HostShell onNewSession={handleNewSession} busy={busy}>
+        <Podium players={players} />
+      </HostShell>
+    );
   }
 
   if (!currentHeat) {
     return (
-      <Lobby
-        code={session.code}
-        joinUrl={joinUrl}
-        players={players}
-        starting={busy}
-        onStart={async () => {
-          setBusy(true);
-          try {
-            await startNextHeat(session.id);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
+      <HostShell onNewSession={handleNewSession} busy={busy}>
+        <Lobby
+          code={session.code}
+          joinUrl={joinUrl}
+          players={players}
+          starting={busy}
+          onStart={async () => {
+            setBusy(true);
+            try {
+              await startNextHeat(session.id);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      </HostShell>
     );
   }
 
   if (currentHeat.status === "running") {
     return (
-      <RaceTrack
-        heatNumber={currentHeat.heat_number}
-        isFinal={currentHeat.is_final}
-        heatPlayers={heatPlayers}
-        playersById={playersById}
-        onCloseHeat={async () => {
-          setBusy(true);
-          try {
-            await closeHeat(currentHeat.id);
-          } finally {
-            setBusy(false);
-          }
-        }}
-        closingHeat={busy}
-      />
+      <HostShell onNewSession={handleNewSession} busy={busy}>
+        <RaceTrack
+          heatNumber={currentHeat.heat_number}
+          isFinal={currentHeat.is_final}
+          heatPlayers={heatPlayers}
+          playersById={playersById}
+          pendingPlayers={pendingPlayers}
+          onCloseHeat={async () => {
+            setBusy(true);
+            try {
+              await closeHeat(currentHeat.id);
+            } finally {
+              setBusy(false);
+            }
+          }}
+          closingHeat={busy}
+        />
+      </HostShell>
     );
   }
 
@@ -164,7 +218,7 @@ export function HostGame() {
           }
         },
       }
-    : pendingCount > 0
+    : pendingPlayers.length > 0
       ? {
           label: "Siguiente carrera",
           busy,
@@ -191,12 +245,15 @@ export function HostGame() {
         };
 
   return (
-    <HeatLeaderboard
-      heatNumber={currentHeat.heat_number}
-      isFinal={currentHeat.is_final}
-      heatPlayers={heatPlayers}
-      playersById={playersById}
-      nextAction={nextAction}
-    />
+    <HostShell onNewSession={handleNewSession} busy={busy}>
+      <HeatLeaderboard
+        heatNumber={currentHeat.heat_number}
+        isFinal={currentHeat.is_final}
+        heatPlayers={heatPlayers}
+        playersById={playersById}
+        pendingPlayers={pendingPlayers}
+        nextAction={nextAction}
+      />
+    </HostShell>
   );
 }

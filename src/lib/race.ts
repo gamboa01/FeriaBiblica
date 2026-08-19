@@ -46,11 +46,15 @@ export async function getSessionById(id: string): Promise<SessionRow | null> {
   return (data as unknown as SessionRow) ?? null;
 }
 
-export async function joinSession(sessionId: string, name: string): Promise<PlayerRow> {
+export async function joinSession(
+  sessionId: string,
+  name: string,
+  avatar: string
+): Promise<PlayerRow> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("players")
-    .insert({ session_id: sessionId, name: name.trim().slice(0, 24) })
+    .insert({ session_id: sessionId, name: name.trim().slice(0, 24), avatar })
     .select()
     .single();
   if (error) throw error;

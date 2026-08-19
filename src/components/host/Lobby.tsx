@@ -39,7 +39,7 @@ export function Lobby({
               key={p.id}
               className="rounded-full bg-slate-800 px-4 py-2 text-lg font-medium text-slate-100"
             >
-              {p.name}
+              {p.avatar} {p.name}
             </span>
           ))}
         </div>

@@ -7,6 +7,7 @@ export function RaceTrack({
   isFinal,
   heatPlayers,
   playersById,
+  pendingPlayers,
   onCloseHeat,
   closingHeat,
 }: {
@@ -14,6 +15,7 @@ export function RaceTrack({
   isFinal: boolean;
   heatPlayers: HeatPlayerRow[];
   playersById: Map<string, PlayerRow>;
+  pendingPlayers: PlayerRow[];
   onCloseHeat: () => void;
   closingHeat: boolean;
 }) {
@@ -47,7 +49,7 @@ export function RaceTrack({
                   className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-2xl transition-[left] duration-300 ease-linear"
                   style={{ left: `${hp.distance_pct}%` }}
                 >
-                  🏃
+                  {player?.avatar ?? "🏃"}
                 </div>
               </div>
               <div className="w-32 shrink-0 text-lg text-slate-400">
@@ -59,6 +61,12 @@ export function RaceTrack({
           );
         })}
       </div>
+
+      {pendingPlayers.length > 0 && (
+        <p className="text-center text-sm text-slate-500">
+          Esperando su turno: {pendingPlayers.map((p) => p.name).join(", ")}
+        </p>
+      )}
 
       <div className="text-center">
         <button
