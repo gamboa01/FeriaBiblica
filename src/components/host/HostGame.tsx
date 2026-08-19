@@ -163,7 +163,6 @@ export function HostGame() {
     return (
       <HostShell onNewSession={handleNewSession} busy={busy}>
         <Lobby
-          code={session.code}
           joinUrl={joinUrl}
           players={players}
           starting={busy}

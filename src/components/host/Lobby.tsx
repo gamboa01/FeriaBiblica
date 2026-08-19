@@ -2,13 +2,11 @@ import { QRCodeSVG } from "qrcode.react";
 import type { PlayerRow } from "@/lib/types";
 
 export function Lobby({
-  code,
   joinUrl,
   players,
   onStart,
   starting,
 }: {
-  code: string;
   joinUrl: string;
   players: PlayerRow[];
   onStart: () => void;
@@ -18,17 +16,11 @@ export function Lobby({
     <div className="flex flex-1 flex-col items-center justify-center gap-10 p-10 text-center">
       <div>
         <h1 className="text-4xl font-bold">Feria Bíblica · Carrera de obstáculos</h1>
-        <p className="mt-2 text-xl text-slate-400">Escanea el código o entra en {joinUrl}</p>
+        <p className="mt-2 text-xl text-slate-400">Escanea este código con tu celular para entrar</p>
       </div>
 
-      <div className="flex items-center gap-12">
-        <div className="rounded-2xl bg-white p-6">
-          <QRCodeSVG value={joinUrl} size={220} />
-        </div>
-        <div>
-          <p className="text-lg text-slate-400">Código</p>
-          <p className="text-7xl font-black tracking-[0.2em] text-amber-400">{code}</p>
-        </div>
+      <div className="rounded-2xl bg-white p-8">
+        <QRCodeSVG value={joinUrl} size={320} />
       </div>
 
       <div className="w-full max-w-2xl">
