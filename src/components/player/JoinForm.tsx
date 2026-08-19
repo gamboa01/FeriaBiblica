@@ -1,0 +1,84 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { getSessionByCode, joinSession } from "@/lib/race";
+import { saveStoredPlayer } from "@/lib/storage";
+import { supabaseConfigured } from "@/lib/supabase/client";
+
+export function JoinForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [code, setCode] = useState(searchParams.get("code")?.toUpperCase() ?? "");
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (name.trim().length === 0) {
+      setError("Escribe tu nombre");
+      return;
+    }
+    if (code.trim().length !== 4) {
+      setError("El código tiene 4 caracteres");
+      return;
+    }
+    setLoading(true);
+    try {
+      const session = await getSessionByCode(code.trim());
+      if (!session) {
+        setError("No existe una sesión con ese código");
+        return;
+      }
+      const player = await joinSession(session.id, name);
+      saveStoredPlayer({
+        playerId: player.id,
+        sessionId: session.id,
+        code: session.code,
+        name: player.name,
+      });
+      router.push(`/play/${session.code}`);
+    } catch {
+      setError("Algo falló al entrar. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!supabaseConfigured) {
+    return (
+      <p className="max-w-xs text-center text-sm text-amber-400">
+        Falta configurar Supabase (.env.local) antes de poder unirse a una partida.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex w-full max-w-xs flex-col gap-4">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Tu nombre"
+        maxLength={24}
+        className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg outline-none focus:border-amber-500"
+      />
+      <input
+        value={code}
+        onChange={(e) => setCode(e.target.value.toUpperCase())}
+        placeholder="CÓDIGO"
+        maxLength={4}
+        className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg uppercase tracking-[0.3em] outline-none focus:border-amber-500"
+      />
+      {error && <p className="text-sm text-red-400">{error}</p>}
+      <button
+        type="submit"
+        disabled={loading}
+        className="rounded-xl bg-amber-500 px-6 py-4 text-lg font-semibold text-slate-950 shadow-lg transition hover:bg-amber-400 active:scale-95 disabled:opacity-60"
+      >
+        {loading ? "Entrando…" : "Entrar"}
+      </button>
+    </form>
+  );
+}
