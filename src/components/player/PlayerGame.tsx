@@ -8,6 +8,7 @@ import {
   getLatestHeatPlayer,
   getSessionById,
   pushDistance,
+  subscribeToHeat,
   subscribeToPlayer,
 } from "@/lib/race";
 import { getStoredPlayer, type StoredPlayer } from "@/lib/storage";
@@ -77,6 +78,15 @@ export function PlayerGame({ code }: { code: string }) {
     return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored]);
+
+  useEffect(() => {
+    if (!heat || !stored) return;
+    const unsubscribe = subscribeToHeat(heat.id, () => {
+      refresh(stored.playerId, stored.sessionId);
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heat?.id]);
 
   const isRunning = heatPlayer?.state === "running" && heat?.status !== "finished";
   const { permission, requestPermission } = useShake({

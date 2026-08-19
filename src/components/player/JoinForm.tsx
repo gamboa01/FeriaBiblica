@@ -10,7 +10,8 @@ import { AVATAR_OPTIONS, DEFAULT_AVATAR } from "@/lib/avatars";
 export function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [code, setCode] = useState(searchParams.get("code")?.toUpperCase() ?? "");
+  const codeFromQr = searchParams.get("code")?.toUpperCase() ?? "";
+  const [code, setCode] = useState(codeFromQr);
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState<string>(DEFAULT_AVATAR);
   const [error, setError] = useState<string | null>(null);
@@ -64,14 +65,19 @@ export function JoinForm() {
         onChange={(e) => setName(e.target.value)}
         placeholder="Tu nombre"
         maxLength={24}
-        className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg outline-none focus:border-amber-500"
+        className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg text-slate-50 outline-none focus:border-amber-500"
       />
       <input
         value={code}
         onChange={(e) => setCode(e.target.value.toUpperCase())}
         placeholder="CÓDIGO"
         maxLength={4}
-        className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg uppercase tracking-[0.3em] outline-none focus:border-amber-500"
+        readOnly={Boolean(codeFromQr)}
+        className={`rounded-lg border px-4 py-3 text-center text-lg uppercase tracking-[0.3em] text-slate-50 outline-none ${
+          codeFromQr
+            ? "border-slate-800 bg-slate-950 text-slate-400"
+            : "border-slate-700 bg-slate-900 focus:border-amber-500"
+        }`}
       />
       <div>
         <p className="mb-2 text-sm text-slate-400">Elige tu personaje</p>

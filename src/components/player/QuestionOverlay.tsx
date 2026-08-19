@@ -62,7 +62,7 @@ export function QuestionOverlay({
               key={i}
               onClick={() => handleAnswer(i)}
               disabled={busy}
-              className={`rounded-lg border px-4 py-3 text-left transition disabled:opacity-70 ${
+              className={`rounded-lg border px-4 py-3 text-left text-slate-50 transition disabled:opacity-70 ${
                 showCorrect
                   ? "border-emerald-500 bg-emerald-500/20"
                   : isSelected

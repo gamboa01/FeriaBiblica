@@ -187,7 +187,13 @@ export async function pushDistance(heatPlayerId: string, distancePct: number): P
 
 export async function enterQuestion(heatPlayerId: string): Promise<void> {
   const supabase = getSupabase();
-  await supabase.from("heat_players").update({ state: "question" }).eq("id", heatPlayerId);
+  // Solo transiciona si de verdad estaba "running" — si ya está en "question"
+  // o "finished" (llamada duplicada/desfasada), esto no hace nada.
+  await supabase
+    .from("heat_players")
+    .update({ state: "question" })
+    .eq("id", heatPlayerId)
+    .eq("state", "running");
 }
 
 export async function recordWrongAttempt(heatPlayerId: string, wrongAttempts: number): Promise<void> {
@@ -210,20 +216,33 @@ export async function clearObstacle(
 ): Promise<{ finished: boolean }> {
   const supabase = getSupabase();
 
-  // El heat ya pudo haber cerrado (otro jugador ganó, o la anfitriona lo
-  // cerró a mano) mientras este jugador respondía su última pregunta.
+  // Vuelve a leer la fila desde la base en vez de confiar en el snapshot que
+  // trae el cliente: en conexiones inestables (iOS) un envío repetido o
+  // retrasado puede llegar con `heatPlayer` desactualizado. Si ya no está en
+  // estado "question" (otro envío ya la resolvió, o el heat ya cerró), esta
+  // llamada no hace nada — evita saltar obstáculos sin haber agitado.
+  const { data: freshRow } = await supabase
+    .from("heat_players")
+    .select("*")
+    .eq("id", heatPlayer.id)
+    .single();
+  const current = freshRow as unknown as HeatPlayerRow | null;
+  if (!current || current.state !== "question") {
+    return { finished: current?.state === "finished" };
+  }
+
   const { data: heatRow } = await supabase
     .from("heats")
     .select("status")
-    .eq("id", heatPlayer.heat_id)
+    .eq("id", current.heat_id)
     .single();
   if ((heatRow as unknown as HeatRow | null)?.status === "finished") {
     return { finished: false };
   }
 
-  const difficulty = OBSTACLE_DIFFICULTIES[heatPlayer.obstacle_index];
+  const difficulty = OBSTACLE_DIFFICULTIES[current.obstacle_index];
   const obstaclePoints = OBSTACLE_POINTS[difficulty];
-  const nextIndex = heatPlayer.obstacle_index + 1;
+  const nextIndex = current.obstacle_index + 1;
   const finished = nextIndex >= OBSTACLE_COUNT;
 
   let finishRank: number | null = null;
@@ -232,13 +251,13 @@ export async function clearObstacle(
     const { count } = await supabase
       .from("heat_players")
       .select("id", { count: "exact", head: true })
-      .eq("heat_id", heatPlayer.heat_id)
+      .eq("heat_id", current.heat_id)
       .not("finish_rank", "is", null);
     finishRank = (count ?? 0) + 1;
     bonus = FINISH_BONUS[Math.min(finishRank - 1, FINISH_BONUS.length - 1)] ?? 0;
   }
 
-  const newPoints = heatPlayer.points + obstaclePoints + bonus;
+  const newPoints = current.points + obstaclePoints + bonus;
 
   await supabase
     .from("heat_players")
@@ -251,22 +270,22 @@ export async function clearObstacle(
       finish_rank: finishRank,
       finish_ms: finished ? Date.now() - raceStartedAt : null,
     })
-    .eq("id", heatPlayer.id);
+    .eq("id", current.id);
 
   // total_score del jugador (lectura + escritura simple; concurrencia baja: un jugador solo escribe su propia fila)
   const { data: player } = await supabase
     .from("players")
     .select("total_score")
-    .eq("id", heatPlayer.player_id)
+    .eq("id", current.player_id)
     .single();
   const currentTotal = (player as unknown as PlayerRow | null)?.total_score ?? 0;
   await supabase
     .from("players")
     .update({ total_score: currentTotal + obstaclePoints + bonus })
-    .eq("id", heatPlayer.player_id);
+    .eq("id", current.player_id);
 
   if (finished && finishRank === 1) {
-    await supabase.from("heats").update({ status: "finished" }).eq("id", heatPlayer.heat_id);
+    await supabase.from("heats").update({ status: "finished" }).eq("id", current.heat_id);
   }
 
   return { finished };
@@ -309,6 +328,26 @@ export function subscribeToPlayer(playerId: string, onChange: () => void) {
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "heat_players", filter: `player_id=eq.${playerId}` },
+      onChange
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Escucha el heat actual del jugador directamente (no solo su propia fila en
+ * heat_players): así se entera de que la carrera cerró aunque en ese momento
+ * no esté generando updates propios (p. ej. a media pregunta).
+ */
+export function subscribeToHeat(heatId: string, onChange: () => void) {
+  const supabase = getSupabase();
+  const channel = supabase
+    .channel(`heat-status:${heatId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "heats", filter: `id=eq.${heatId}` },
       onChange
     )
     .subscribe();
