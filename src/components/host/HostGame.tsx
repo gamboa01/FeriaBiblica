@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  closeHeat,
   createSession,
   finishSession,
   getSessionById,
@@ -135,6 +136,15 @@ export function HostGame() {
         isFinal={currentHeat.is_final}
         heatPlayers={heatPlayers}
         playersById={playersById}
+        onCloseHeat={async () => {
+          setBusy(true);
+          try {
+            await closeHeat(currentHeat.id);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        closingHeat={busy}
       />
     );
   }

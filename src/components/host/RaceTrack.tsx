@@ -7,11 +7,15 @@ export function RaceTrack({
   isFinal,
   heatPlayers,
   playersById,
+  onCloseHeat,
+  closingHeat,
 }: {
   heatNumber: number;
   isFinal: boolean;
   heatPlayers: HeatPlayerRow[];
   playersById: Map<string, PlayerRow>;
+  onCloseHeat: () => void;
+  closingHeat: boolean;
 }) {
   return (
     <div className="flex flex-1 flex-col justify-center gap-8 p-10">
@@ -54,6 +58,16 @@ export function RaceTrack({
             </div>
           );
         })}
+      </div>
+
+      <div className="text-center">
+        <button
+          onClick={onCloseHeat}
+          disabled={closingHeat}
+          className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-400 transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
+        >
+          {closingHeat ? "Cerrando…" : "Cerrar carrera para todos"}
+        </button>
       </div>
     </div>
   );

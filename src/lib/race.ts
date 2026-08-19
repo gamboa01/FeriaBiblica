@@ -196,14 +196,27 @@ export async function recordWrongAttempt(heatPlayerId: string, wrongAttempts: nu
 
 /**
  * Registra un obstáculo superado. Si era el último, cierra la carrera del
- * jugador (rango de llegada + bonus) y, si con esto terminan todos los
- * carriles del heat, marca el heat como finalizado.
+ * jugador (rango de llegada + bonus) y, como el primero en llegar gana,
+ * ese mismo cierre marca el heat completo como finalizado — los demás
+ * carriles quedan con lo que ya habían acumulado.
  */
 export async function clearObstacle(
   heatPlayer: HeatPlayerRow,
   raceStartedAt: number
 ): Promise<{ finished: boolean }> {
   const supabase = getSupabase();
+
+  // El heat ya pudo haber cerrado (otro jugador ganó, o la anfitriona lo
+  // cerró a mano) mientras este jugador respondía su última pregunta.
+  const { data: heatRow } = await supabase
+    .from("heats")
+    .select("status")
+    .eq("id", heatPlayer.heat_id)
+    .single();
+  if ((heatRow as unknown as HeatRow | null)?.status === "finished") {
+    return { finished: false };
+  }
+
   const difficulty = OBSTACLE_DIFFICULTIES[heatPlayer.obstacle_index];
   const obstaclePoints = OBSTACLE_POINTS[difficulty];
   const nextIndex = heatPlayer.obstacle_index + 1;
@@ -248,18 +261,17 @@ export async function clearObstacle(
     .update({ total_score: currentTotal + obstaclePoints + bonus })
     .eq("id", heatPlayer.player_id);
 
-  if (finished) {
-    const remaining = await supabase
-      .from("heat_players")
-      .select("id", { count: "exact", head: true })
-      .eq("heat_id", heatPlayer.heat_id)
-      .is("finish_rank", null);
-    if ((remaining.count ?? 0) === 0) {
-      await supabase.from("heats").update({ status: "finished" }).eq("id", heatPlayer.heat_id);
-    }
+  if (finished && finishRank === 1) {
+    await supabase.from("heats").update({ status: "finished" }).eq("id", heatPlayer.heat_id);
   }
 
   return { finished };
+}
+
+/** Cierra la carrera actual para todos los carriles, la hayan terminado o no. */
+export async function closeHeat(heatId: string): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("heats").update({ status: "finished" }).eq("id", heatId);
 }
 
 /** Última fila heat_players del jugador (su carrera actual o más reciente), con el heat asociado. */

@@ -18,7 +18,11 @@ import { RunningView } from "@/components/player/RunningView";
 import { QuestionOverlay } from "@/components/player/QuestionOverlay";
 import { StatusScreen } from "@/components/player/StatusScreen";
 
-const SPEED_FACTOR = 1.1; // % de pista por muestra de intensidad máxima — calibrar con celulares reales
+// % de pista por muestra de intensidad máxima. Bajado de 1.1 a 0.2 el
+// 2026-08-19 tras probar en celular real: con 1.1 bastaban ~3 agitadas para
+// llegar al primer obstáculo. Sigue siendo un valor aproximado — probable que
+// haga falta afinarlo de nuevo en el ensayo con más celulares.
+const SPEED_FACTOR = 0.2;
 
 export function PlayerGame({ code }: { code: string }) {
   const router = useRouter();
@@ -74,7 +78,7 @@ export function PlayerGame({ code }: { code: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored]);
 
-  const isRunning = heatPlayer?.state === "running";
+  const isRunning = heatPlayer?.state === "running" && heat?.status !== "finished";
   const { permission, requestPermission } = useShake({
     active: isRunning,
     onTick: (intensity) => {
@@ -129,6 +133,15 @@ export function PlayerGame({ code }: { code: string }) {
       <StatusScreen
         title={`Hola, ${stored.name}`}
         subtitle="Espera a que la anfitriona inicie tu carrera…"
+      />
+    );
+  }
+
+  if (heat.status === "finished" && heatPlayer.state !== "finished") {
+    return (
+      <StatusScreen
+        title="La carrera terminó"
+        subtitle={`Sumaste ${heatPlayer.points} puntos hasta donde llegaste — mira la pantalla grande.`}
       />
     );
   }
