@@ -8,9 +8,9 @@ export function Podium({ players }: { players: PlayerRow[] }) {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-10 p-10 text-center">
-      <h1 className="text-4xl font-bold">🏆 Podio final</h1>
+      <h1 className="text-4xl font-black text-slate-900">🏆 Podio final</h1>
       {champions.length > 1 && (
-        <p className="text-xl text-amber-400">
+        <p className="text-xl font-semibold text-amber-800">
           ¡Empate en el primer lugar! Co-campeones: {champions.map((c) => c.name).join(", ")}
         </p>
       )}
@@ -36,9 +36,9 @@ function PodiumBlock({
   return (
     <div className="flex flex-col items-center gap-3">
       <p className="text-2xl font-bold">{medal}</p>
-      <p className="text-xl font-semibold">{player.name}</p>
-      <p className="text-lg text-amber-400">{player.total_score} pts</p>
-      <div className={`w-32 rounded-t-lg bg-slate-800 ${height}`} />
+      <p className="text-xl font-semibold text-slate-900">{player.name}</p>
+      <p className="text-lg font-bold text-amber-800">{player.total_score} pts</p>
+      <div className={`w-32 rounded-t-lg bg-slate-900 shadow-xl ${height}`} />
     </div>
   );
 }

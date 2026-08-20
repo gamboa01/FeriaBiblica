@@ -140,8 +140,8 @@ export function HostGame() {
   if (!supabaseConfigured) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
-        <h1 className="text-2xl font-bold">Falta configurar Supabase</h1>
-        <p className="text-slate-400">
+        <h1 className="text-2xl font-bold text-slate-900">Falta configurar Supabase</h1>
+        <p className="text-slate-700">
           Define NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local (ver
           .env.local.example) y reinicia el servidor.
         </p>
@@ -152,7 +152,7 @@ export function HostGame() {
   if (!session) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-xl text-slate-400">Creando sesión…</p>
+        <p className="text-xl font-medium text-slate-700">Creando sesión…</p>
       </div>
     );
   }
