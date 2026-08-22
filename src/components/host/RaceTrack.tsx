@@ -1,13 +1,43 @@
+import { getLaneTheme } from "@/lib/avatars";
 import { OBSTACLE_COUNT, type HeatPlayerRow, type PlayerRow } from "@/lib/types";
 
 const OBSTACLE_MARKERS = Array.from({ length: OBSTACLE_COUNT - 1 }, (_, i) => ((i + 1) / OBSTACLE_COUNT) * 100);
 
-const LANE_COLORS = [
-  { fill: "bg-sky-500", glow: "shadow-sky-500/50" },
-  { fill: "bg-rose-500", glow: "shadow-rose-500/50" },
-  { fill: "bg-emerald-500", glow: "shadow-emerald-500/50" },
-  { fill: "bg-violet-500", glow: "shadow-violet-500/50" },
-];
+function LanePattern({ pattern }: { pattern: "road" | "stars" | "clouds" | null }) {
+  if (pattern === "road") {
+    return (
+      <div
+        className="absolute inset-y-0 left-1/2 w-2 -translate-x-1/2"
+        style={{
+          backgroundImage: "repeating-linear-gradient(to bottom, #facc15 0 16px, transparent 16px 32px)",
+        }}
+      />
+    );
+  }
+  if (pattern === "stars") {
+    return (
+      <div
+        className="absolute inset-0 opacity-80"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.85) 1px, transparent 1.5px)",
+          backgroundSize: "18px 18px",
+        }}
+      />
+    );
+  }
+  if (pattern === "clouds") {
+    return (
+      <div
+        className="absolute inset-0 opacity-90"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.85) 10%, transparent 60%), radial-gradient(circle at 70% 50%, rgba(255,255,255,0.75) 12%, transparent 60%), radial-gradient(circle at 35% 78%, rgba(255,255,255,0.7) 10%, transparent 60%)",
+        }}
+      />
+    );
+  }
+  return null;
+}
 
 export function RaceTrack({
   heatNumber,
@@ -42,9 +72,9 @@ export function RaceTrack({
       </div>
 
       <div className="flex min-h-0 flex-1 gap-3 px-4 pb-4 sm:gap-4 sm:px-6">
-        {heatPlayers.map((hp, i) => {
+        {heatPlayers.map((hp) => {
           const player = playersById.get(hp.player_id);
-          const color = LANE_COLORS[i % LANE_COLORS.length];
+          const theme = getLaneTheme(player?.avatar);
           return (
             <div key={hp.id} className="flex min-w-0 flex-1 flex-col gap-2">
               <div className="flex shrink-0 flex-col items-center gap-0.5 rounded-xl bg-white/50 px-2 py-2 text-center backdrop-blur">
@@ -59,25 +89,29 @@ export function RaceTrack({
                 </span>
               </div>
 
-              <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-900/15 ring-1 ring-inset ring-white/40">
+              <div
+                className={`relative min-h-0 flex-1 overflow-hidden rounded-2xl ring-1 ring-inset ring-white/40 ${theme.base}`}
+              >
+                <LanePattern pattern={theme.pattern} />
+
                 {/* meta */}
                 <div className="absolute inset-x-0 top-0 z-10 flex h-3 items-center justify-center bg-[repeating-linear-gradient(90deg,#0f172a_0_8px,#f8fafc_8px_16px)]" />
 
                 {OBSTACLE_MARKERS.map((m) => (
                   <div
                     key={m}
-                    className="absolute inset-x-0 h-[2px] bg-slate-900/25"
+                    className="absolute inset-x-0 z-[5] h-[2px] bg-white/40"
                     style={{ bottom: `${m}%` }}
                   />
                 ))}
 
                 <div
-                  className={`absolute inset-x-0 bottom-0 ${color.fill} opacity-70 transition-[height] duration-300 ease-linear`}
+                  className={`absolute inset-x-0 bottom-0 ${theme.fill} transition-[height] duration-300 ease-linear`}
                   style={{ height: `${hp.distance_pct}%` }}
                 />
 
                 <div
-                  className={`absolute left-1/2 -translate-x-1/2 translate-y-1/2 text-3xl drop-shadow-lg transition-[bottom] duration-300 ease-linear sm:text-4xl`}
+                  className="absolute left-1/2 z-[6] -translate-x-1/2 translate-y-1/2 text-3xl drop-shadow-lg transition-[bottom] duration-300 ease-linear sm:text-4xl"
                   style={{ bottom: `${hp.distance_pct}%` }}
                 >
                   {player?.avatar ?? "🏃"}

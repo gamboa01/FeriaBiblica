@@ -38,7 +38,7 @@ function HostShell({
       <button
         onClick={onNewSession}
         disabled={busy}
-        className="absolute right-4 top-4 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-1.5 text-xs text-slate-400 backdrop-blur transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
+        className="absolute left-4 top-4 z-20 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-1.5 text-xs text-slate-300 backdrop-blur transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
       >
         Nueva sesión
       </button>
