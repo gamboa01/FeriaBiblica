@@ -65,6 +65,69 @@ create trigger trg_heat_players_updated_at
   before update on heat_players
   for each row execute function set_updated_at();
 
+-- Registra un obstáculo superado en una sola llamada (una sola ida y vuelta
+-- de red) en vez de varias lecturas/escrituras encadenadas desde el
+-- cliente — eso hacía que hasta una respuesta correcta se sintiera lenta.
+-- También bloquea la fila (FOR UPDATE) mientras dura, evitando dobles avances
+-- si dos envíos llegan casi al mismo tiempo.
+create or replace function clear_obstacle(p_heat_player_id uuid, p_race_started_at bigint)
+returns boolean as $$
+declare
+  v_row heat_players%rowtype;
+  v_heat_status text;
+  v_obstacle_points int[] := array[10, 10, 15, 15, 20];
+  v_finish_bonus int[] := array[50, 30, 15, 5];
+  v_points int;
+  v_next_index int;
+  v_finished boolean;
+  v_finish_rank int;
+  v_bonus int := 0;
+begin
+  select * into v_row from heat_players where id = p_heat_player_id for update;
+
+  if not found or v_row.state <> 'question' then
+    return coalesce(v_row.state = 'finished', false);
+  end if;
+
+  select status into v_heat_status from heats where id = v_row.heat_id;
+  if v_heat_status = 'finished' then
+    return false;
+  end if;
+
+  v_points := v_obstacle_points[v_row.obstacle_index + 1];
+  v_next_index := v_row.obstacle_index + 1;
+  v_finished := v_next_index >= 5;
+
+  if v_finished then
+    select count(*) + 1 into v_finish_rank from heat_players
+      where heat_id = v_row.heat_id and finish_rank is not null;
+    v_bonus := v_finish_bonus[least(v_finish_rank, 4)];
+  else
+    v_finish_rank := null;
+  end if;
+
+  update heat_players set
+    obstacle_index = v_next_index,
+    distance_pct = (v_next_index::numeric / 5) * 100,
+    state = case when v_finished then 'finished' else 'running' end,
+    wrong_attempts = 0,
+    points = v_row.points + v_points + v_bonus,
+    finish_rank = v_finish_rank,
+    finish_ms = case when v_finished then (extract(epoch from now()) * 1000)::bigint - p_race_started_at else null end
+  where id = p_heat_player_id;
+
+  update players set total_score = total_score + v_points + v_bonus where id = v_row.player_id;
+
+  if v_finished and v_finish_rank = 1 then
+    update heats set status = 'finished' where id = v_row.heat_id;
+  end if;
+
+  return v_finished;
+end;
+$$ language plpgsql;
+
+grant execute on function clear_obstacle(uuid, bigint) to anon, authenticated;
+
 -- Realtime
 alter publication supabase_realtime add table sessions;
 alter publication supabase_realtime add table players;

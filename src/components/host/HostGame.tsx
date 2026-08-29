@@ -59,6 +59,13 @@ export function HostGame() {
   const currentHeat = heats[heats.length - 1] ?? null;
   const playersById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const initStarted = useRef(false);
+  // Con hasta 4 jugadores mandando un ping cada 300ms mientras corren, los
+  // eventos de Realtime pueden llegar más rápido de lo que tarda en resolver
+  // cada fetch. Descartar "por orden de disparo" puede hacer que NINGÚN fetch
+  // gane nunca (pantalla del host congelada) — en vez de eso, se compara la
+  // fecha real de actualización de los datos recibidos contra la última
+  // aplicada, y solo se descarta si es genuinamente más vieja.
+  const heatPlayersMaxUpdatedAt = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabaseConfigured || initStarted.current) return;
@@ -82,11 +89,11 @@ export function HostGame() {
 
   async function refreshSessionData(sessionId: string) {
     const [p, h] = await Promise.all([listPlayers(sessionId), listHeats(sessionId)]);
+    const pending = await playersWithoutHeat(sessionId);
+    const s = await getSessionById(sessionId);
     setPlayers(p);
     setHeats(h);
-    const pending = await playersWithoutHeat(sessionId);
     setPendingPlayers(pending);
-    const s = await getSessionById(sessionId);
     setSession(s);
   }
 
@@ -98,14 +105,25 @@ export function HostGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.id]);
 
+  async function refreshHeatPlayers(heatId: string) {
+    const rows = await listHeatPlayers(heatId);
+    const newMax = rows.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), "");
+    if (heatPlayersMaxUpdatedAt.current && newMax && newMax < heatPlayersMaxUpdatedAt.current) {
+      return; // esta respuesta es genuinamente más vieja que lo que ya se aplicó
+    }
+    if (newMax) heatPlayersMaxUpdatedAt.current = newMax;
+    setHeatPlayers(rows);
+  }
+
   useEffect(() => {
+    heatPlayersMaxUpdatedAt.current = null;
     if (!currentHeat) {
       setHeatPlayers([]);
       return;
     }
-    listHeatPlayers(currentHeat.id).then(setHeatPlayers);
+    refreshHeatPlayers(currentHeat.id);
     const unsubscribe = subscribeToHeatPlayers(currentHeat.id, () => {
-      listHeatPlayers(currentHeat.id).then(setHeatPlayers);
+      refreshHeatPlayers(currentHeat.id);
     });
     return unsubscribe;
   }, [currentHeat?.id]);

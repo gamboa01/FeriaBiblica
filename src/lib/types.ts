@@ -98,6 +98,11 @@ export interface Database {
       heat_players: Table<HeatPlayerRow, Partial<HeatPlayerRow>>;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      clear_obstacle: {
+        Args: { p_heat_player_id: string; p_race_started_at: number };
+        Returns: boolean;
+      };
+    };
   };
 }

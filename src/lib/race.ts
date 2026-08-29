@@ -1,11 +1,7 @@
 import { getSupabase } from "@/lib/supabase/client";
 import { generateJoinCode } from "@/lib/joinCode";
 import {
-  FINISH_BONUS,
   MAX_LANES,
-  OBSTACLE_COUNT,
-  OBSTACLE_DIFFICULTIES,
-  OBSTACLE_POINTS,
   type HeatPlayerRow,
   type HeatRow,
   type PlayerRow,
@@ -210,85 +206,25 @@ export async function recordWrongAttempt(heatPlayerId: string, wrongAttempts: nu
  * ese mismo cierre marca el heat completo como finalizado — los demás
  * carriles quedan con lo que ya habían acumulado.
  */
+/**
+ * Registra un obstáculo superado. Toda la lógica (difficulty → puntos,
+ * bonus de llegada, cierre del heat si es el primero en terminar) vive en
+ * la función `clear_obstacle` de Postgres (ver supabase/schema.sql) para
+ * que sea UNA sola ida y vuelta de red en vez de varias encadenadas —
+ * con el código anterior, incluso una respuesta correcta se sentía lenta
+ * porque hacía hasta 6 llamadas seguidas a Supabase.
+ */
 export async function clearObstacle(
   heatPlayer: HeatPlayerRow,
   raceStartedAt: number
 ): Promise<{ finished: boolean }> {
   const supabase = getSupabase();
-
-  // Vuelve a leer la fila desde la base en vez de confiar en el snapshot que
-  // trae el cliente: en conexiones inestables (iOS) un envío repetido o
-  // retrasado puede llegar con `heatPlayer` desactualizado. Si ya no está en
-  // estado "question" (otro envío ya la resolvió, o el heat ya cerró), esta
-  // llamada no hace nada — evita saltar obstáculos sin haber agitado.
-  const { data: freshRow } = await supabase
-    .from("heat_players")
-    .select("*")
-    .eq("id", heatPlayer.id)
-    .single();
-  const current = freshRow as unknown as HeatPlayerRow | null;
-  if (!current || current.state !== "question") {
-    return { finished: current?.state === "finished" };
-  }
-
-  const { data: heatRow } = await supabase
-    .from("heats")
-    .select("status")
-    .eq("id", current.heat_id)
-    .single();
-  if ((heatRow as unknown as HeatRow | null)?.status === "finished") {
-    return { finished: false };
-  }
-
-  const difficulty = OBSTACLE_DIFFICULTIES[current.obstacle_index];
-  const obstaclePoints = OBSTACLE_POINTS[difficulty];
-  const nextIndex = current.obstacle_index + 1;
-  const finished = nextIndex >= OBSTACLE_COUNT;
-
-  let finishRank: number | null = null;
-  let bonus = 0;
-  if (finished) {
-    const { count } = await supabase
-      .from("heat_players")
-      .select("id", { count: "exact", head: true })
-      .eq("heat_id", current.heat_id)
-      .not("finish_rank", "is", null);
-    finishRank = (count ?? 0) + 1;
-    bonus = FINISH_BONUS[Math.min(finishRank - 1, FINISH_BONUS.length - 1)] ?? 0;
-  }
-
-  const newPoints = current.points + obstaclePoints + bonus;
-
-  await supabase
-    .from("heat_players")
-    .update({
-      obstacle_index: nextIndex,
-      distance_pct: (nextIndex / OBSTACLE_COUNT) * 100,
-      state: finished ? "finished" : "running",
-      wrong_attempts: 0,
-      points: newPoints,
-      finish_rank: finishRank,
-      finish_ms: finished ? Date.now() - raceStartedAt : null,
-    })
-    .eq("id", current.id);
-
-  // total_score del jugador (lectura + escritura simple; concurrencia baja: un jugador solo escribe su propia fila)
-  const { data: player } = await supabase
-    .from("players")
-    .select("total_score")
-    .eq("id", current.player_id)
-    .single();
-  const currentTotal = (player as unknown as PlayerRow | null)?.total_score ?? 0;
-  await supabase
-    .from("players")
-    .update({ total_score: currentTotal + obstaclePoints + bonus })
-    .eq("id", current.player_id);
-
-  if (finished && finishRank === 1) {
-    await supabase.from("heats").update({ status: "finished" }).eq("id", current.heat_id);
-  }
-
-  return { finished };
+  const { data, error } = await supabase.rpc("clear_obstacle", {
+    p_heat_player_id: heatPlayer.id,
+    p_race_started_at: raceStartedAt,
+  });
+  if (error) throw error;
+  return { finished: Boolean(data) };
 }
 
 /** Cierra la carrera actual para todos los carriles, la hayan terminado o no. */

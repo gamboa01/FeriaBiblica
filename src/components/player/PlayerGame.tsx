@@ -41,6 +41,12 @@ export function PlayerGame({ code }: { code: string }) {
   // Evita que los ecos de nuestro propio pushDistance() (vía Realtime) reinicien
   // el progreso local: solo se resetea al entrar de verdad a un obstáculo nuevo.
   const runningSegmentKey = useRef<string | null>(null);
+  // Descarta respuestas de red que lleguen desordenadas comparando por
+  // "updated_at" real (no por orden de disparo): con pushDistance corriendo
+  // cada 300ms, descartar por orden de disparo podía dejar SIEMPRE una
+  // respuesta más nueva en camino y nunca aplicar ninguna (pantalla atascada
+  // mostrando "running" aunque el servidor ya diga "question").
+  const lastAppliedUpdatedAt = useRef<string | null>(null);
 
   useEffect(() => {
     const s = getStoredPlayer();
@@ -58,14 +64,19 @@ export function PlayerGame({ code }: { code: string }) {
     ]);
     setSession(sessionRow);
     if (latest) {
-      setHeatPlayer(latest.heatPlayer);
-      setHeat(latest.heat);
-      const key = `${latest.heatPlayer.id}:${latest.heatPlayer.obstacle_index}`;
-      if (latest.heatPlayer.state === "running" && runningSegmentKey.current !== key) {
-        runningSegmentKey.current = key;
-        pctRef.current = latest.heatPlayer.distance_pct;
-        setLocalPct(latest.heatPlayer.distance_pct);
-        enteringQuestion.current = false;
+      const isStale =
+        lastAppliedUpdatedAt.current !== null && latest.heatPlayer.updated_at < lastAppliedUpdatedAt.current;
+      if (!isStale) {
+        lastAppliedUpdatedAt.current = latest.heatPlayer.updated_at;
+        setHeatPlayer(latest.heatPlayer);
+        setHeat(latest.heat);
+        const key = `${latest.heatPlayer.id}:${latest.heatPlayer.obstacle_index}`;
+        if (latest.heatPlayer.state === "running" && runningSegmentKey.current !== key) {
+          runningSegmentKey.current = key;
+          pctRef.current = latest.heatPlayer.distance_pct;
+          setLocalPct(latest.heatPlayer.distance_pct);
+          enteringQuestion.current = false;
+        }
       }
     }
     setLoading(false);
@@ -126,6 +137,11 @@ export function PlayerGame({ code }: { code: string }) {
   useEffect(() => {
     if (!isRunning || !heatPlayer || permission !== "granted") return;
     const interval = setInterval(() => {
+      // Se detiene apenas cruza el umbral del obstáculo, sin esperar a que el
+      // servidor confirme el cambio de estado — si no, sigue mandando pings
+      // cada 300ms mientras "pregunta" está en camino, lo que puede saturar
+      // la sincronización con el host y con la propia pantalla del jugador.
+      if (enteringQuestion.current) return;
       pushDistance(heatPlayer.id, pctRef.current);
     }, 300);
     return () => clearInterval(interval);
