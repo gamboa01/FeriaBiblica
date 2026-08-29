@@ -5,7 +5,7 @@ export default function Home() {
     <main className="flex flex-1 flex-col items-center justify-center gap-10 p-6 text-center">
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Feria Bíblica</h1>
-        <p className="mt-2 text-slate-400">Carrera de obstáculos · corran para ganar (1 Cor. 9)</p>
+        <p className="mt-2 text-slate-400">Carrera de la Fe · corran para ganar (1 Cor. 9)</p>
       </div>
 
       <div className="flex w-full max-w-xs flex-col gap-4">

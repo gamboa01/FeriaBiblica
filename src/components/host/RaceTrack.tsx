@@ -40,7 +40,6 @@ function LanePattern({ pattern }: { pattern: "road" | "stars" | "clouds" | null 
 }
 
 export function RaceTrack({
-  heatNumber,
   isFinal,
   heatPlayers,
   playersById,
@@ -48,7 +47,6 @@ export function RaceTrack({
   onCloseHeat,
   closingHeat,
 }: {
-  heatNumber: number;
   isFinal: boolean;
   heatPlayers: HeatPlayerRow[];
   playersById: Map<string, PlayerRow>;
@@ -60,7 +58,7 @@ export function RaceTrack({
     <div className="flex h-full flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-4 px-6 py-4">
         <h1 className="text-2xl font-black text-slate-900 sm:text-3xl">
-          {isFinal ? "🏆 Carrera final" : `Carrera ${heatNumber}`}
+          Carrera de la Fe{isFinal && " · Final"}
         </h1>
         <button
           onClick={onCloseHeat}

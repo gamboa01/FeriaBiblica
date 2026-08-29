@@ -15,7 +15,7 @@ export function Lobby({
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-10 p-10 text-center">
       <div>
-        <h1 className="text-4xl font-black text-slate-900">Feria Bíblica · Carrera de obstáculos</h1>
+        <h1 className="text-4xl font-black text-slate-900">Feria Bíblica · Carrera de la Fe</h1>
         <p className="mt-2 text-xl font-medium text-slate-800">
           Escanea este código con tu celular para entrar
         </p>

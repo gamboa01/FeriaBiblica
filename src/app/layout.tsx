@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Feria Bíblica · Carrera de obstáculos",
+  title: "Feria Bíblica · Carrera de la Fe",
   description: "Juego de movimiento multi-dispositivo para la feria bíblica",
 };
 

@@ -16,6 +16,7 @@ import {
   subscribeToSession,
 } from "@/lib/race";
 import { getStoredHostSession, saveStoredHostSession } from "@/lib/storage";
+import { playFinish, unlockAudio } from "@/lib/sounds";
 import { supabaseConfigured } from "@/lib/supabase/client";
 import type { HeatPlayerRow, HeatRow, PlayerRow, SessionRow } from "@/lib/types";
 import { Lobby } from "@/components/host/Lobby";
@@ -109,6 +110,14 @@ export function HostGame() {
     return unsubscribe;
   }, [currentHeat?.id]);
 
+  const heatFinishSoundPlayedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (currentHeat?.status === "finished" && heatFinishSoundPlayedFor.current !== currentHeat.id) {
+      heatFinishSoundPlayedFor.current = currentHeat.id;
+      playFinish();
+    }
+  }, [currentHeat?.id, currentHeat?.status]);
+
   async function handleNewSession() {
     if (
       !window.confirm(
@@ -173,6 +182,7 @@ export function HostGame() {
           players={players}
           starting={busy}
           onStart={async () => {
+            unlockAudio();
             setBusy(true);
             try {
               await startNextHeat(session.id);
@@ -189,7 +199,6 @@ export function HostGame() {
     return (
       <HostShell onNewSession={handleNewSession} busy={busy}>
         <RaceTrack
-          heatNumber={currentHeat.heat_number}
           isFinal={currentHeat.is_final}
           heatPlayers={heatPlayers}
           playersById={playersById}
@@ -260,7 +269,6 @@ export function HostGame() {
   return (
     <HostShell onNewSession={handleNewSession} busy={busy}>
       <HeatLeaderboard
-        heatNumber={currentHeat.heat_number}
         isFinal={currentHeat.is_final}
         heatPlayers={heatPlayers}
         playersById={playersById}

@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { clearObstacle, recordWrongAttempt } from "@/lib/race";
 import { pickQuestion } from "@/lib/questions";
+import { playCorrect, playWrong } from "@/lib/sounds";
 import { OBSTACLE_DIFFICULTIES, type HeatPlayerRow, type Question } from "@/lib/types";
+
+// Cuánto se espera antes de mostrar la siguiente pregunta tras fallar. No hay
+// penalización de puntos por fallar (ver conversación de diseño) — este
+// tiempo es el "costo" de una respuesta mala, además de perder tiempo de
+// agitado frente a los demás corredores.
+const WRONG_ANSWER_DELAY_MS = 2000;
 
 export function QuestionOverlay({
   heatPlayer,
@@ -37,11 +44,13 @@ export function QuestionOverlay({
     const correct = index === question.correct_index;
     setFeedback(correct ? "correct" : "wrong");
     if (correct) {
+      playCorrect();
       await clearObstacle(heatPlayer, raceStartedAt);
     } else {
+      playWrong();
       setTimeout(() => {
         recordWrongAttempt(heatPlayer.id, heatPlayer.wrong_attempts + 1);
-      }, 700);
+      }, WRONG_ANSWER_DELAY_MS);
     }
   }
 

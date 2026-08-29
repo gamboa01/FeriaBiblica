@@ -13,6 +13,7 @@ import {
   subscribeToSessionStatus,
 } from "@/lib/race";
 import { getStoredPlayer, type StoredPlayer } from "@/lib/storage";
+import { playFinish, unlockAudio } from "@/lib/sounds";
 import { OBSTACLE_COUNT, type HeatPlayerRow, type HeatRow, type SessionRow } from "@/lib/types";
 import { supabaseConfigured } from "@/lib/supabase/client";
 import { ActivateMotion } from "@/components/player/ActivateMotion";
@@ -98,6 +99,14 @@ export function PlayerGame({ code }: { code: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored?.sessionId]);
 
+  const finishSoundPlayedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (heatPlayer?.state === "finished" && finishSoundPlayedFor.current !== heatPlayer.id) {
+      finishSoundPlayedFor.current = heatPlayer.id;
+      playFinish();
+    }
+  }, [heatPlayer?.id, heatPlayer?.state]);
+
   const isRunning = heatPlayer?.state === "running" && heat?.status !== "finished";
   const { permission, requestPermission } = useShake({
     active: isRunning,
@@ -136,7 +145,15 @@ export function PlayerGame({ code }: { code: string }) {
   }
 
   if (permission !== "granted") {
-    return <ActivateMotion permission={permission} onActivate={requestPermission} />;
+    return (
+      <ActivateMotion
+        permission={permission}
+        onActivate={() => {
+          unlockAudio();
+          requestPermission();
+        }}
+      />
+    );
   }
 
   if (session?.status === "finished") {
