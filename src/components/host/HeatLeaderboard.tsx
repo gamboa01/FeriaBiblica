@@ -1,4 +1,4 @@
-import type { HeatPlayerRow, PlayerRow } from "@/lib/types";
+import { OBSTACLE_COUNT, type HeatPlayerRow, type PlayerRow } from "@/lib/types";
 
 const MEDALS = ["🥇", "🥈", "🥉", "4º"];
 
@@ -13,11 +13,17 @@ export function HeatLeaderboard({
   pendingPlayers: PlayerRow[];
   nextAction: { label: string; onClick: () => void; busy: boolean };
 }) {
-  const sorted = [...heatPlayers].sort((a, b) => (a.finish_rank ?? 99) - (b.finish_rank ?? 99));
+  const sorted = [...heatPlayers].sort((a, b) => {
+    const aFinished = a.finish_rank !== null;
+    const bFinished = b.finish_rank !== null;
+    if (aFinished !== bFinished) return aFinished ? -1 : 1;
+    if (aFinished) return (a.finish_rank ?? 0) - (b.finish_rank ?? 0);
+    return b.obstacle_index - a.obstacle_index;
+  });
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 p-10 text-center">
-      <h1 className="text-3xl font-black text-slate-900">Resultados de la Carrera de la Fe</h1>
+      <h1 className="font-heading text-3xl font-black text-slate-900">Resultados de la Carrera de la Fe</h1>
       <div className="flex w-full max-w-xl flex-col gap-3">
         {sorted.map((hp, i) => (
           <div
@@ -28,7 +34,9 @@ export function HeatLeaderboard({
               {MEDALS[i] ?? `${i + 1}º`} {playersById.get(hp.player_id)?.avatar ?? ""}{" "}
               {playersById.get(hp.player_id)?.name ?? "…"}
             </span>
-            <span className="text-xl font-bold text-amber-400">+{hp.points} pts</span>
+            <span className="text-xl font-bold text-amber-400">
+              {hp.obstacle_index}/{OBSTACLE_COUNT}
+            </span>
           </div>
         ))}
       </div>

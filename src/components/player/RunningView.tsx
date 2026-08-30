@@ -12,7 +12,7 @@ export function RunningView({ localPct, obstacleIndex }: { localPct: number; obs
           style={{ width: `${localPct}%` }}
         />
       </div>
-      <h2 className="text-3xl font-bold">¡AGITA EL CELULAR!</h2>
+      <h2 className="font-heading text-3xl font-bold">¡AGITA EL CELULAR!</h2>
       <p className="text-sm text-slate-400">Mientras más rápido agites, más corres</p>
     </div>
   );

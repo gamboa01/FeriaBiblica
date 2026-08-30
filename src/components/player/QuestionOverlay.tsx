@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { clearObstacle, recordWrongAttempt } from "@/lib/race";
-import { pickQuestion } from "@/lib/questions";
+import { useEffect, useRef, useState } from "react";
+import { clearObstacle, pickQuestionForHeat, recordWrongAttempt } from "@/lib/race";
+import { ALL_QUESTION_IDS, getQuestionById } from "@/lib/questions";
 import { playCorrect, playWrong } from "@/lib/sounds";
-import { OBSTACLE_DIFFICULTIES, type HeatPlayerRow, type Question } from "@/lib/types";
+import type { HeatPlayerRow, Question } from "@/lib/types";
 
 // Cuánto se espera antes de mostrar la siguiente pregunta tras fallar. No hay
 // penalización de puntos por fallar (ver conversación de diseño) — este
@@ -19,20 +19,24 @@ export function QuestionOverlay({
   heatPlayer: HeatPlayerRow;
   raceStartedAt: number;
 }) {
-  const difficulty = OBSTACLE_DIFFICULTIES[heatPlayer.obstacle_index];
-  const [shownIds, setShownIds] = useState<string[]>([]);
   const [question, setQuestion] = useState<Question | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [busy, setBusy] = useState(false);
+  // Ignora una respuesta de pickQuestionForHeat si para cuando llega ya
+  // cambiamos de obstáculo/intento (evita mostrar una pregunta vieja).
+  const attemptKey = useRef(0);
 
   useEffect(() => {
-    const q = pickQuestion(difficulty, shownIds);
-    setQuestion(q);
-    setShownIds((ids) => [...ids, q.id]);
+    const key = ++attemptKey.current;
+    setQuestion(null);
     setSelected(null);
     setFeedback(null);
     setBusy(false);
+    pickQuestionForHeat(heatPlayer.heat_id, ALL_QUESTION_IDS).then((id) => {
+      if (key !== attemptKey.current) return;
+      setQuestion(getQuestionById(id));
+    });
     // Nueva pregunta cada vez que cambia el intento (o el obstáculo).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heatPlayer.wrong_attempts, heatPlayer.obstacle_index]);
@@ -54,12 +58,18 @@ export function QuestionOverlay({
     }
   }
 
-  if (!question) return null;
+  if (!question) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+        <p className="text-slate-400">Cargando pregunta…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
       <p className="text-sm uppercase tracking-wide text-amber-400">
-        Obstáculo {heatPlayer.obstacle_index + 1} · {difficulty}
+        Obstáculo {heatPlayer.obstacle_index + 1}
       </p>
       <h2 className="text-xl font-bold">{question.text}</h2>
       <div className="grid w-full max-w-sm gap-3">

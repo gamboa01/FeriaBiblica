@@ -54,12 +54,12 @@ export function RaceTrack({
 }) {
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between gap-4 px-6 py-4">
-        <h1 className="text-2xl font-black text-slate-900 sm:text-3xl">Carrera de la Fe</h1>
+      <div className="relative flex shrink-0 items-center justify-center px-6 py-4">
+        <h1 className="font-heading text-2xl font-black text-slate-900 sm:text-3xl">Carrera de la Fe</h1>
         <button
           onClick={onCloseHeat}
           disabled={closingHeat}
-          className="rounded-lg border border-slate-900/20 bg-white/40 px-3 py-1.5 text-xs font-semibold text-slate-800 backdrop-blur transition hover:border-red-500 hover:text-red-600 disabled:opacity-50"
+          className="absolute right-4 rounded-lg border border-slate-900/20 bg-white/40 px-3 py-1.5 text-xs font-semibold text-slate-800 backdrop-blur transition hover:border-red-500 hover:text-red-600 disabled:opacity-50"
         >
           {closingHeat ? "Cerrando…" : "Cerrar carrera"}
         </button>

@@ -25,6 +25,7 @@ create table if not exists heats (
   heat_number int not null,
   status text not null default 'waiting' check (status in ('waiting', 'running', 'finished')),
   is_final boolean not null default false,
+  used_question_ids text[] not null default '{}',
   created_at timestamptz not null default now()
 );
 
@@ -70,18 +71,16 @@ create trigger trg_heat_players_updated_at
 -- cliente — eso hacía que hasta una respuesta correcta se sintiera lenta.
 -- También bloquea la fila (FOR UPDATE) mientras dura, evitando dobles avances
 -- si dos envíos llegan casi al mismo tiempo.
+-- Sin puntaje: la posición de llegada (finish_rank) ya es el resultado; no
+-- se calculan puntos ni bonus (ver conversación de diseño).
 create or replace function clear_obstacle(p_heat_player_id uuid, p_race_started_at bigint)
 returns boolean as $$
 declare
   v_row heat_players%rowtype;
   v_heat_status text;
-  v_obstacle_points int[] := array[10, 10, 15, 15, 20];
-  v_finish_bonus int[] := array[50, 30, 15, 5];
-  v_points int;
   v_next_index int;
   v_finished boolean;
   v_finish_rank int;
-  v_bonus int := 0;
 begin
   select * into v_row from heat_players where id = p_heat_player_id for update;
 
@@ -94,14 +93,12 @@ begin
     return false;
   end if;
 
-  v_points := v_obstacle_points[v_row.obstacle_index + 1];
   v_next_index := v_row.obstacle_index + 1;
   v_finished := v_next_index >= 5;
 
   if v_finished then
     select count(*) + 1 into v_finish_rank from heat_players
       where heat_id = v_row.heat_id and finish_rank is not null;
-    v_bonus := v_finish_bonus[least(v_finish_rank, 4)];
   else
     v_finish_rank := null;
   end if;
@@ -111,12 +108,9 @@ begin
     distance_pct = (v_next_index::numeric / 5) * 100,
     state = case when v_finished then 'finished' else 'running' end,
     wrong_attempts = 0,
-    points = v_row.points + v_points + v_bonus,
     finish_rank = v_finish_rank,
     finish_ms = case when v_finished then (extract(epoch from now()) * 1000)::bigint - p_race_started_at else null end
   where id = p_heat_player_id;
-
-  update players set total_score = total_score + v_points + v_bonus where id = v_row.player_id;
 
   if v_finished and v_finish_rank = 1 then
     update heats set status = 'finished' where id = v_row.heat_id;
@@ -127,6 +121,43 @@ end;
 $$ language plpgsql;
 
 grant execute on function clear_obstacle(uuid, bigint) to anon, authenticated;
+
+-- Reparte una pregunta sin repetir dentro del mismo heat (ni para el mismo
+-- jugador entre obstáculos, ni entre jugadores distintos): recibe la lista
+-- completa de ids válidos (el banco vive en el código, no en la base — ver
+-- conversación de diseño) y devuelve uno que no esté en
+-- heats.used_question_ids, registrándolo ahí atómicamente. Si ya se usaron
+-- todos (banco agotado en este heat), reutiliza cualquiera como último
+-- recurso en vez de fallar.
+create or replace function pick_question(p_heat_id uuid, p_candidate_ids text[])
+returns text as $$
+declare
+  v_used text[];
+  v_available text[];
+  v_chosen text;
+begin
+  select used_question_ids into v_used from heats where id = p_heat_id for update;
+  if v_used is null then
+    v_used := '{}';
+  end if;
+
+  select array_agg(id) into v_available
+    from unnest(p_candidate_ids) as id
+    where id <> all(v_used);
+
+  if v_available is null or array_length(v_available, 1) is null then
+    v_available := p_candidate_ids;
+  end if;
+
+  v_chosen := v_available[1 + floor(random() * array_length(v_available, 1))::int];
+
+  update heats set used_question_ids = array_append(v_used, v_chosen) where id = p_heat_id;
+
+  return v_chosen;
+end;
+$$ language plpgsql;
+
+grant execute on function pick_question(uuid, text[]) to anon, authenticated;
 
 -- Realtime
 alter publication supabase_realtime add table sessions;

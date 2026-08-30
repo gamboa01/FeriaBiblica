@@ -1,23 +1,8 @@
-export type Difficulty = "facil" | "media" | "dificil";
-
 export type SessionStatus = "lobby" | "racing" | "finished";
 export type HeatStatus = "waiting" | "running" | "finished";
 export type HeatPlayerState = "running" | "question" | "finished";
 
 export const OBSTACLE_COUNT = 5;
-export const OBSTACLE_DIFFICULTIES: Difficulty[] = [
-  "facil",
-  "facil",
-  "media",
-  "media",
-  "dificil",
-];
-export const OBSTACLE_POINTS: Record<Difficulty, number> = {
-  facil: 10,
-  media: 15,
-  dificil: 20,
-};
-export const FINISH_BONUS = [50, 30, 15, 5]; // por posición de llegada (1º-4º)
 export const MAX_LANES = 4;
 
 // Nota: estos son `type`, no `interface`. Un `interface` no satisface
@@ -27,11 +12,9 @@ export const MAX_LANES = 4;
 // insert/update de Supabase colapsa silenciosamente a `never`.
 export type Question = {
   id: string;
-  difficulty: Difficulty;
   text: string;
   options: string[];
   correct_index: number;
-  category?: string;
 };
 
 export type SessionRow = {
@@ -56,6 +39,7 @@ export type HeatRow = {
   heat_number: number;
   status: HeatStatus;
   is_final: boolean;
+  used_question_ids: string[];
   created_at: string;
 };
 
@@ -102,6 +86,10 @@ export interface Database {
       clear_obstacle: {
         Args: { p_heat_player_id: string; p_race_started_at: number };
         Returns: boolean;
+      };
+      pick_question: {
+        Args: { p_heat_id: string; p_candidate_ids: string[] };
+        Returns: string;
       };
     };
   };

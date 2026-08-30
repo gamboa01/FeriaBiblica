@@ -173,18 +173,14 @@ export async function recordWrongAttempt(heatPlayerId: string, wrongAttempts: nu
 }
 
 /**
- * Registra un obstáculo superado. Si era el último, cierra la carrera del
- * jugador (rango de llegada + bonus) y, como el primero en llegar gana,
- * ese mismo cierre marca el heat completo como finalizado — los demás
- * carriles quedan con lo que ya habían acumulado.
- */
-/**
- * Registra un obstáculo superado. Toda la lógica (difficulty → puntos,
- * bonus de llegada, cierre del heat si es el primero en terminar) vive en
- * la función `clear_obstacle` de Postgres (ver supabase/schema.sql) para
- * que sea UNA sola ida y vuelta de red en vez de varias encadenadas —
- * con el código anterior, incluso una respuesta correcta se sentía lenta
- * porque hacía hasta 6 llamadas seguidas a Supabase.
+ * Registra un obstáculo superado. Si era el último, asigna el rango de
+ * llegada y, como el primero en llegar gana, ese mismo cierre marca el heat
+ * completo como finalizado — los demás carriles quedan con lo que ya
+ * habían avanzado. Sin puntaje: solo importa el orden de llegada.
+ * Toda la lógica vive en la función `clear_obstacle` de Postgres (ver
+ * supabase/schema.sql) para que sea UNA sola ida y vuelta de red en vez de
+ * varias encadenadas — con el código anterior, incluso una respuesta
+ * correcta se sentía lenta porque hacía hasta 6 llamadas seguidas.
  */
 export async function clearObstacle(
   heatPlayer: HeatPlayerRow,
@@ -197,6 +193,21 @@ export async function clearObstacle(
   });
   if (error) throw error;
   return { finished: Boolean(data) };
+}
+
+/**
+ * Elige una pregunta que no se haya usado todavía en este heat (ni para
+ * este jugador ni para ningún otro) — coordinado en la base para que dos
+ * jugadores no puedan recibir la misma por una carrera entre sus clientes.
+ */
+export async function pickQuestionForHeat(heatId: string, candidateIds: string[]): Promise<string> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc("pick_question", {
+    p_heat_id: heatId,
+    p_candidate_ids: candidateIds,
+  });
+  if (error) throw error;
+  return data as unknown as string;
 }
 
 /** Cierra la carrera actual para todos los carriles, la hayan terminado o no. */

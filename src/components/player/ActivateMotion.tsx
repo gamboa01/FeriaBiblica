@@ -11,7 +11,7 @@ export function ActivateMotion({
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
-      <h2 className="text-2xl font-bold">Un paso más</h2>
+      <h2 className="font-heading text-2xl font-bold">Un paso más</h2>
       <p className="max-w-xs text-slate-400">
         Necesitamos permiso para leer el movimiento de tu celular. Tócalo una sola vez.
       </p>

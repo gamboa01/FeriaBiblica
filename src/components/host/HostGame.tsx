@@ -65,6 +65,11 @@ export function HostGame() {
   // fecha real de actualización de los datos recibidos contra la última
   // aplicada, y solo se descarta si es genuinamente más vieja.
   const heatPlayersMaxUpdatedAt = useRef<string | null>(null);
+  // Evita que un refreshSessionData() de la sesión ANTERIOR (todavía en
+  // vuelo cuando el host da "Nueva sesión") le pise el estado a la sesión
+  // nueva recién creada — sin esto, el QR podía "parpadear" hasta refrescar
+  // la página.
+  const activeSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabaseConfigured || initStarted.current) return;
@@ -90,6 +95,7 @@ export function HostGame() {
     const [p, h] = await Promise.all([listPlayers(sessionId), listHeats(sessionId)]);
     const pending = await playersWithoutHeat(sessionId);
     const s = await getSessionById(sessionId);
+    if (sessionId !== activeSessionIdRef.current) return; // era de una sesión que ya no es la actual
     setPlayers(p);
     setHeats(h);
     setPendingPlayers(pending);
@@ -98,6 +104,7 @@ export function HostGame() {
 
   useEffect(() => {
     if (!session) return;
+    activeSessionIdRef.current = session.id;
     refreshSessionData(session.id);
     const unsubscribe = subscribeToSession(session.id, () => refreshSessionData(session.id));
     return unsubscribe;
@@ -142,6 +149,24 @@ export function HostGame() {
     }
   }, [currentHeat?.id, currentHeat?.status]);
 
+  // Una sesión es una sola carrera: en cuanto el heat termina y no queda
+  // nadie pendiente, se salta directo al podio sin mostrar la pantalla de
+  // resultados intermedia (ver conversación de diseño).
+  const autoPodiumFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      session &&
+      session.status !== "finished" &&
+      currentHeat?.status === "finished" &&
+      pendingPlayers.length === 0 &&
+      autoPodiumFor.current !== currentHeat.id
+    ) {
+      autoPodiumFor.current = currentHeat.id;
+      finishSession(session.id).then(() => refreshSessionData(session.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id, session?.status, currentHeat?.id, currentHeat?.status, pendingPlayers.length]);
+
   async function handleNewSession() {
     if (
       !window.confirm(
@@ -159,6 +184,7 @@ export function HostGame() {
         await finishSession(session.id);
       }
       const s = await createSession();
+      activeSessionIdRef.current = s.id;
       saveStoredHostSession(s.id);
       setSession(s);
       setPlayers([]);
@@ -173,7 +199,7 @@ export function HostGame() {
   if (!supabaseConfigured) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
-        <h1 className="text-2xl font-bold text-slate-900">Falta configurar Supabase</h1>
+        <h1 className="font-heading text-2xl font-bold text-slate-900">Falta configurar Supabase</h1>
         <p className="text-slate-700">
           Define NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local (ver
           .env.local.example) y reinicia el servidor.
@@ -193,7 +219,7 @@ export function HostGame() {
   if (session.status === "finished") {
     return (
       <HostShell onNewSession={handleNewSession} busy={busy}>
-        <Podium players={players} />
+        <Podium heatPlayers={heatPlayers} playersById={playersById} />
       </HostShell>
     );
   }
@@ -241,23 +267,27 @@ export function HostGame() {
   }
 
   // currentHeat.status === "finished" — una sesión es una sola carrera, así
-  // que en cuanto no queda nadie pendiente se va directo al podio.
-  const goToPodium = {
-    label: "Ver podio final",
-    busy,
-    onClick: async () => {
-      setBusy(true);
-      try {
-        await finishSession(session.id);
-        await refreshSessionData(session.id);
-      } finally {
-        setBusy(false);
-      }
-    },
-  };
-  const nextAction =
-    pendingPlayers.length > 0
-      ? {
+  // que en cuanto no queda nadie pendiente el efecto de arriba salta directo
+  // al podio (sin pantalla de resultados intermedia). Esta pantalla de
+  // "Siguiente carrera" solo se ve cuando de verdad hay más de 4 jugadores
+  // en la sesión y falta correr a otro grupo.
+  if (pendingPlayers.length === 0) {
+    return (
+      <HostShell onNewSession={handleNewSession} busy={busy}>
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-xl font-medium text-slate-700">Cargando podio…</p>
+        </div>
+      </HostShell>
+    );
+  }
+
+  return (
+    <HostShell onNewSession={handleNewSession} busy={busy}>
+      <HeatLeaderboard
+        heatPlayers={heatPlayers}
+        playersById={playersById}
+        pendingPlayers={pendingPlayers}
+        nextAction={{
           label: "Siguiente carrera",
           busy,
           onClick: async () => {
@@ -268,16 +298,7 @@ export function HostGame() {
               setBusy(false);
             }
           },
-        }
-      : goToPodium;
-
-  return (
-    <HostShell onNewSession={handleNewSession} busy={busy}>
-      <HeatLeaderboard
-        heatPlayers={heatPlayers}
-        playersById={playersById}
-        pendingPlayers={pendingPlayers}
-        nextAction={nextAction}
+        }}
       />
     </HostShell>
   );

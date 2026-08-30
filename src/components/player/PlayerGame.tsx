@@ -197,7 +197,7 @@ export function PlayerGame({ code }: { code: string }) {
     return (
       <StatusScreen
         title="La carrera terminó"
-        subtitle={`Sumaste ${heatPlayer.points} puntos hasta donde llegaste — mira la pantalla grande.`}
+        subtitle={`Respondiste ${heatPlayer.obstacle_index}/${OBSTACLE_COUNT} correctamente — mira la pantalla grande.`}
       />
     );
   }
@@ -216,7 +216,7 @@ export function PlayerGame({ code }: { code: string }) {
             ? "¡Llegaste primero! 🏆"
             : `Llegaste en ${heatPlayer.finish_rank}º lugar`
         }
-        subtitle={`Sumaste ${heatPlayer.points} puntos en esta carrera. Mira la pantalla grande.`}
+        subtitle={`Respondiste ${OBSTACLE_COUNT}/${OBSTACLE_COUNT} correctamente. Mira la pantalla grande.`}
       />
     );
   }
