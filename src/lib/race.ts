@@ -144,34 +144,6 @@ export async function startNextHeat(sessionId: string): Promise<HeatRow> {
   return heat as unknown as HeatRow;
 }
 
-export async function startFinalHeat(sessionId: string): Promise<HeatRow> {
-  const supabase = getSupabase();
-  const players = await listPlayers(sessionId);
-  const top = [...players].sort((a, b) => b.total_score - a.total_score).slice(0, MAX_LANES);
-  if (top.length === 0) throw new Error("No hay jugadores para la final");
-
-  const { data: heat, error: heatError } = await supabase
-    .from("heats")
-    .insert({ session_id: sessionId, heat_number: 999, status: "running", is_final: true })
-    .select()
-    .single();
-  if (heatError) throw heatError;
-
-  const rows = top.map((player, lane) => ({
-    heat_id: (heat as unknown as HeatRow).id,
-    player_id: player.id,
-    lane,
-    distance_pct: 0,
-    obstacle_index: 0,
-    state: "running" as const,
-    wrong_attempts: 0,
-    points: 0,
-  }));
-  const { error: hpError } = await supabase.from("heat_players").insert(rows);
-  if (hpError) throw hpError;
-
-  return heat as unknown as HeatRow;
-}
 
 export async function pushDistance(heatPlayerId: string, distancePct: number): Promise<void> {
   const supabase = getSupabase();

@@ -10,7 +10,6 @@ import {
   listHeats,
   listPlayers,
   playersWithoutHeat,
-  startFinalHeat,
   startNextHeat,
   subscribeToHeatPlayers,
   subscribeToSession,
@@ -125,7 +124,14 @@ export function HostGame() {
     const unsubscribe = subscribeToHeatPlayers(currentHeat.id, () => {
       refreshHeatPlayers(currentHeat.id);
     });
-    return unsubscribe;
+    // Refresco de respaldo cada 2s: si Realtime llega a perder o agrupar
+    // algún cambio bajo carga (varios jugadores agitando a la vez), esto
+    // hace que el host nunca se quede más de un par de segundos atrás.
+    const pollInterval = setInterval(() => refreshHeatPlayers(currentHeat.id), 2000);
+    return () => {
+      unsubscribe();
+      clearInterval(pollInterval);
+    };
   }, [currentHeat?.id]);
 
   const heatFinishSoundPlayedFor = useRef<string | null>(null);
@@ -217,7 +223,6 @@ export function HostGame() {
     return (
       <HostShell onNewSession={handleNewSession} busy={busy}>
         <RaceTrack
-          isFinal={currentHeat.is_final}
           heatPlayers={heatPlayers}
           playersById={playersById}
           pendingPlayers={pendingPlayers}
@@ -235,12 +240,8 @@ export function HostGame() {
     );
   }
 
-  // currentHeat.status === "finished"
-  const regularHeatsCount = heats.filter((h) => !h.is_final).length;
-  // Con 4 jugadores o menos, todos ya corrieron juntos en una sola tanda —
-  // no hay un "mejor 4" distinto de esos mismos jugadores, así que la final
-  // no aporta nada y se salta directo al podio.
-  const finalMakesSense = regularHeatsCount > 1;
+  // currentHeat.status === "finished" — una sesión es una sola carrera, así
+  // que en cuanto no queda nadie pendiente se va directo al podio.
   const goToPodium = {
     label: "Ver podio final",
     busy,
@@ -254,9 +255,8 @@ export function HostGame() {
       }
     },
   };
-  const nextAction = currentHeat.is_final
-    ? goToPodium
-    : pendingPlayers.length > 0
+  const nextAction =
+    pendingPlayers.length > 0
       ? {
           label: "Siguiente carrera",
           busy,
@@ -269,25 +269,11 @@ export function HostGame() {
             }
           },
         }
-      : finalMakesSense
-        ? {
-            label: "Iniciar carrera final (top 4)",
-            busy,
-            onClick: async () => {
-              setBusy(true);
-              try {
-                await startFinalHeat(session.id);
-              } finally {
-                setBusy(false);
-              }
-            },
-          }
-        : goToPodium;
+      : goToPodium;
 
   return (
     <HostShell onNewSession={handleNewSession} busy={busy}>
       <HeatLeaderboard
-        isFinal={currentHeat.is_final}
         heatPlayers={heatPlayers}
         playersById={playersById}
         pendingPlayers={pendingPlayers}

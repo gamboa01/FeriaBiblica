@@ -45,3 +45,10 @@ export function playWrong() {
 export function playFinish() {
   [523, 659, 784, 1046].forEach((f, i) => tone(f, 180, "square", i * 120, 0.18));
 }
+
+// Suena apenas aparece la pregunta, para que el jugador deje de agitar de
+// inmediato en vez de perder tiempo sin darse cuenta de que ya debe leer.
+export function playQuestionReady() {
+  tone(660, 90, "triangle", 0, 0.22);
+  tone(660, 90, "triangle", 140, 0.22);
+}

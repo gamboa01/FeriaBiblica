@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getSessionByCode, joinSession } from "@/lib/race";
-import { saveStoredPlayer } from "@/lib/storage";
+import { getStoredPlayer, saveStoredPlayer } from "@/lib/storage";
 import { supabaseConfigured } from "@/lib/supabase/client";
 import { AVATAR_OPTIONS, DEFAULT_AVATAR } from "@/lib/avatars";
+import { StatusScreen } from "@/components/player/StatusScreen";
 
 export function JoinForm() {
   const router = useRouter();
@@ -16,6 +17,39 @@ export function JoinForm() {
   const [avatar, setAvatar] = useState<string>(DEFAULT_AVATAR);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Mientras se revisa si ya venía unido a esta misma sesión, o si la sesión
+  // del QR ya terminó — evita mostrar el formulario un instante antes de
+  // redirigir o bloquear.
+  const [checking, setChecking] = useState(Boolean(codeFromQr));
+  const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    if (!codeFromQr || !supabaseConfigured) {
+      setChecking(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const existing = getStoredPlayer();
+      if (existing && existing.code === codeFromQr) {
+        // Ya se había unido desde este celular (p. ej. tocó "atrás" por
+        // accidente) — lo regresamos a su partida en vez de dejarlo crear
+        // un jugador duplicado.
+        router.replace(`/play/${codeFromQr}`);
+        return;
+      }
+      const session = await getSessionByCode(codeFromQr);
+      if (cancelled) return;
+      if (session?.status === "finished") {
+        setBlocked(true);
+      }
+      setChecking(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeFromQr]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +67,15 @@ export function JoinForm() {
       const session = await getSessionByCode(code.trim());
       if (!session) {
         setError("No existe una sesión con ese código");
+        return;
+      }
+      if (session.status === "finished") {
+        setBlocked(true);
+        return;
+      }
+      const existing = getStoredPlayer();
+      if (existing && existing.sessionId === session.id) {
+        router.push(`/play/${session.code}`);
         return;
       }
       const player = await joinSession(session.id, name, avatar);
@@ -58,6 +101,19 @@ export function JoinForm() {
     );
   }
 
+  if (checking) {
+    return <StatusScreen title="Un momento…" />;
+  }
+
+  if (blocked) {
+    return (
+      <StatusScreen
+        title="Esta ronda ya terminó"
+        subtitle="Pide a la anfitriona que te muestre el código nuevo para la siguiente ronda."
+      />
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="flex w-full max-w-xs flex-col gap-4">
       <input
@@ -67,18 +123,15 @@ export function JoinForm() {
         maxLength={24}
         className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg text-slate-50 outline-none focus:border-amber-500"
       />
-      <input
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase())}
-        placeholder="CÓDIGO"
-        maxLength={4}
-        readOnly={Boolean(codeFromQr)}
-        className={`rounded-lg border px-4 py-3 text-center text-lg uppercase tracking-[0.3em] text-slate-50 outline-none ${
-          codeFromQr
-            ? "border-slate-800 bg-slate-950 text-slate-400"
-            : "border-slate-700 bg-slate-900 focus:border-amber-500"
-        }`}
-      />
+      {!codeFromQr && (
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="CÓDIGO"
+          maxLength={4}
+          className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg uppercase tracking-[0.3em] text-slate-50 outline-none focus:border-amber-500"
+        />
+      )}
       <div>
         <p className="mb-2 text-sm text-slate-400">Elige tu personaje</p>
         <div className="grid grid-cols-4 gap-2">

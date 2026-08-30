@@ -13,7 +13,7 @@ import {
   subscribeToSessionStatus,
 } from "@/lib/race";
 import { getStoredPlayer, type StoredPlayer } from "@/lib/storage";
-import { playFinish, unlockAudio } from "@/lib/sounds";
+import { playFinish, playQuestionReady, unlockAudio } from "@/lib/sounds";
 import { OBSTACLE_COUNT, type HeatPlayerRow, type HeatRow, type SessionRow } from "@/lib/types";
 import { supabaseConfigured } from "@/lib/supabase/client";
 import { ActivateMotion } from "@/components/player/ActivateMotion";
@@ -129,6 +129,9 @@ export function PlayerGame({ code }: { code: string }) {
       setLocalPct(next);
       if (next >= nextThreshold) {
         enteringQuestion.current = true;
+        // Suena de inmediato en el celular, sin esperar a que el servidor
+        // confirme el cambio de estado — es el aviso de "deja de agitar".
+        playQuestionReady();
         enterQuestion(heatPlayer.id);
       }
     },

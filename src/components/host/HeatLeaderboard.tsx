@@ -3,13 +3,11 @@ import type { HeatPlayerRow, PlayerRow } from "@/lib/types";
 const MEDALS = ["🥇", "🥈", "🥉", "4º"];
 
 export function HeatLeaderboard({
-  isFinal,
   heatPlayers,
   playersById,
   pendingPlayers,
   nextAction,
 }: {
-  isFinal: boolean;
   heatPlayers: HeatPlayerRow[];
   playersById: Map<string, PlayerRow>;
   pendingPlayers: PlayerRow[];
@@ -19,9 +17,7 @@ export function HeatLeaderboard({
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 p-10 text-center">
-      <h1 className="text-3xl font-black text-slate-900">
-        Resultados de la Carrera de la Fe{isFinal && " · Final"}
-      </h1>
+      <h1 className="text-3xl font-black text-slate-900">Resultados de la Carrera de la Fe</h1>
       <div className="flex w-full max-w-xl flex-col gap-3">
         {sorted.map((hp, i) => (
           <div
